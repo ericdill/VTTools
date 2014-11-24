@@ -160,6 +160,7 @@ class Listify(Module):
     _output_ports = [
         OPort(name="listified_data", signature="basic:List"),
         OPort(name="listified_time", signature="basic:List"),
+        OPort(name="data_key", signature="basic:String"),
     ]
 
     def compute(self):
@@ -172,14 +173,23 @@ class Listify(Module):
         # print('key input: {0}'.format(key))
         data_dict = listify(data_keys=key, run_header=header)
         # print('data_dict: {0}'.format(data_dict))
-        # remove time from the dictionary
-        time = data_dict.pop('time')
-        # stringify the datetime object that gets returned
-        time = [t.isoformat() for t in time]
+        try:
+            # remove time from the dictionary
+            time = data_dict.pop('time')
+            # stringify the datetime object that gets returned
+            try:
+                time = [t.isoformat() for t in time]
+            except AttributeError:
+                # time is not a datetime object
+                pass
+            need_time = False
+        except KeyError:
+            need_time = True
+        print('data_dict: {}'.format(data_dict))
         # get the remaining keys
-        key = list(data_dict)
+        key = list(six.iterkeys(data_dict))
         # verify that there is only one key in the dictionary
-        if len(key) != 1:
+        if len(key) > 1:
             raise ValueError("The return value from "
                              "metadataStore.utilities.utility.listify had "
                              "more than one key. Keys: {0}".format(key))
@@ -196,12 +206,15 @@ class Listify(Module):
             mod = self.registry.get_module_by_name(
                 sig[0], sig[1])
             data = [mod(d) for d in data]
+        if need_time:
+            time = range(len(data))
         # log the values set to the output ports at a debug level
         logger.debug('data ', data)
         logger.debug('time ', time)
         # set the module's output
         self.set_output("listified_data", data)
         self.set_output("listified_time", time)
+        self.set_output("data_key", key)
 
 
 def vistrails_modules():

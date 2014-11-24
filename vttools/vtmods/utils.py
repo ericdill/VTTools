@@ -117,10 +117,13 @@ def gen_unique_id(run_header):
     """
     logger.debug("run_header.__class__: {0}".format(run_header.__class__))
     logger.debug("run_header: {0}".format(run_header))
-    return_dict = {"owner": run_header["owner"],
-                   "data": True,
-                   "scan_id": run_header["scan_id"]
-                   }
+    return_dict = {
+        # "owner": run_header["owner"],
+        "data": True,
+        "scan_id": run_header["scan_id"]
+    }
+    print('run_header: {}'.format(run_header))
+    # return_dict = {'scan_id': run_header['']}
 
     return return_dict
 
@@ -146,12 +149,17 @@ def search_databroker(search_dict):
 
     return result
 
-
-# query_window = query_widget.QueryMainWindow(keys=search_keys_dict,
-#                                             search_func=search_databroker,
-#                                             add_func=add_to_canvas,
-#                                             unique_id_func=gen_unique_id)
-
+try:
+    query_window = query_widget.QueryMainWindow(keys=search_keys_dict,
+                                                search_func=search_databroker,
+                                                add_func=add_to_canvas,
+                                                unique_id_func=gen_unique_id)
+except Exception as e:
+    print("\n\n==================================================="
+          "Exception raise while trying to create the "
+          "query_window: {}"
+          "======================================================="
+          "\n\n".format(e))
 
 def setup_bnl_menu():
     """
@@ -165,7 +173,7 @@ def setup_bnl_menu():
 
     def foo():
         print('menu bar clicked!')
-        # query_window.show()
+        query_window.show()
     bnl_menu.addAction("demo", foo)
 
 

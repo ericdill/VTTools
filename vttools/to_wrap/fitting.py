@@ -34,7 +34,7 @@
 ########################################################################
 import sys
 from skxray.fitting.api import (QuadraticModel, GaussianModel,
-                                 LorentzianModel, Lorentzian2Model)
+                                 LorentzianModel, Lorentzian2Model, LinearModel)
 
 import logging
 logger = logging.getLogger(__name__)
@@ -121,7 +121,13 @@ def fit_engine(g, x, y):
     y_fit : array
         fitted y
     """
-    result = g.fit(y, x=x)
+    params = None
+    try:
+        params = g.guess(y, x=x)
+        result = g.fit(params=params, data=y, x=x)
+    except NotImplementedError as nie:
+        print("Attribute error on lmfit_model.guess(): {}".format(nie))
+        result = g.fit(data=y, x=x)
     y_fit = result.best_fit
 
     return result, y_fit
