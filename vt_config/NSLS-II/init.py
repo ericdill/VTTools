@@ -53,21 +53,29 @@ logger = logging.getLogger(__name__)
 import_dict = load_config()
 
 _black_list = ['who', 'mafromtxt', 'ndfromtxt', 'source',
-                 'info', 'add_newdoc_ufunc', 'frombuffer',
-                 'fromiter', 'frompyfunc', 'getbuffer',
-                 'newbuffer', 'pkgload', 'recfromcsv',
-                 'recfromtxt', 'savez', 'savez_compressed',
-                 'set_printoptions', 'seterrcall', 'tensordot',
-                 'genfromtxt', 'ppmt', 'pv', 'rate', 'nper', 'fv',
-                 'ipmt', 'issubclass_', 'pmt', 'formatter',
-                 # skxray
-                 'peak_refinement']
+               'info', 'add_newdoc_ufunc', 'frombuffer',
+               'fromiter', 'frompyfunc', 'getbuffer',
+               'newbuffer', 'pkgload', 'recfromcsv',
+               'recfromtxt', 'savez', 'savez_compressed',
+               'set_printoptions', 'seterrcall', 'tensordot',
+               'genfromtxt', 'ppmt', 'pv', 'rate', 'nper', 'fv',
+               'ipmt', 'issubclass_', 'pmt', 'formatter',
+               # skxray
+               'peak_refinement']
 
 _exclude_markers = ['busday', 'buffer']
 
+MOD_TARGETS = [
+    ('numpy', True),
+    ('scipy', True),
+    ('skxray', True),
+    ('vttools.to_wrap.fitting', False),
+]
 
-def get_modules():
 
+def get_modules(modules=None):
+    if modules is None:
+        modules = MOD_TARGETS
     # autowrap classes
     # class_list = import_dict['autowrap_classes']
     # vtclasses = [wrap_lib.wrap_function(**func_dict)
@@ -82,42 +90,13 @@ def get_modules():
     vtmods = [vtmod for mod in pymods for vtmod in mod.vistrails_modules()]
 
     vtfuncs = []
-    mod_targets = ['numpy',
-                   'numpy.fft',
-                   'numpy.polynomial',
-                   'numpy.random',
-                   'scipy',
-                   'scipy.cluster',
-                   'scipy.fftpack',
-                   'scipy.integrate',
-                   'scipy.interpolate',
-                   'scipy.io',
-                   'scipy.linalg',
-                   'scipy.misc',
-                   'scipy.ndimage',
-                   'scipy.odr',
-                   'scipy.optimize',
-                   'scipy.signal',
-                   'scipy.sparse',
-                   'scipy.spatial',
-                   'scipy.special',
-                   'scipy.stats',
-                   'skxray.calibration',
-                   'skxray.core',
-                   'skxray.recip',
-                   'skxray.diff_roi_choice',
-                   'skxray.io.binary',
-                   'skxray.io.save_powder_output',
-                   'skxray.io.gsas_file_reader',
-                   'skxray.api.diffraction',
-                   'vttools.to_wrap.fitting',
-                   ]
 
-    for mod_name in mod_targets:
+    for mod_name, recurse in modules:
         print('=' * 25)
-        print('starting module {}'.format(mod_name))
+        print('starting module {}. Recurse into library {}'.format(mod_name,
+                                                                   recurse))
         print('=' * 25)
-        mod_specs = scrape.scrape_module(mod_name,
+        mod_specs = scrape.scrape_module(mod_name, recurse=recurse,
                                          black_list=_black_list,
                                          exclude_markers=_exclude_markers)
         for ftw, spec_dict in six.iteritems(mod_specs):

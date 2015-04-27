@@ -156,8 +156,8 @@ def gen_module(input_ports, output_ports, docstring,
 
 
 def gen_module_ufunc(input_ports, output_ports, docstring,
-               module_name, library_func, module_namespace,
-               dict_port=None):
+                     module_name, library_func, module_namespace,
+                     dict_port=None):
     if dict_port is not None:
         raise NotImplementedError("Dict_port is not supported for ufuncs")
     # can't unpack dicts into ufuncs, assume all are

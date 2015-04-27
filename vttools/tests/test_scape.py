@@ -367,3 +367,55 @@ def _mod_scrape_test_helper(mod_name, kwargs_with, kwargs_without,
     res = scrape.scrape_module(mod_name, **kwargs_without)
     for n in test_members:
         assert_true(n not in res)
+
+
+RECURSIVE_WRAP = [
+    'skxray'
+]
+WRAP_MODULE_ONLY = [
+    'numpy',
+    'numpy.fft',
+    'numpy.polynomial',
+    'numpy.random',
+    'scipy',
+    'scipy.cluster',
+    'scipy.fftpack',
+    'scipy.integrate',
+    'scipy.interpolate',
+    'scipy.io',
+    'scipy.linalg',
+    'scipy.misc',
+    'scipy.ndimage',
+    'scipy.odr',
+    'scipy.optimize',
+    'scipy.signal',
+    'scipy.sparse',
+    'scipy.spatial',
+    'scipy.special',
+    'scipy.stats',
+    'skxray.calibration',
+    'skxray.core',
+    'skxray.recip',
+    'skxray.diff_roi_choice',
+    'skxray.io.binary',
+    'skxray.io.save_powder_output',
+    'skxray.io.gsas_file_reader',
+    'skxray.api.diffraction',
+    'vttools.to_wrap.fitting',
+]
+
+
+def _library_import_helper(library, recurse):
+    scrape.scrape_module(library, recurse)
+
+
+def test_library_imports():
+    for lib in RECURSIVE_WRAP:
+        yield _library_import_helper, lib, True
+    for lib in WRAP_MODULE_ONLY:
+        yield _library_import_helper, lib, False
+
+
+if __name__ == '__main__':
+    import nose
+    nose.runmodule(argv=['-s', '--with-doctest'], exit=False)

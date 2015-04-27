@@ -43,6 +43,7 @@ import re
 from collections import OrderedDict
 from numpydoc.docscrape import FunctionDoc, ClassDoc
 import numpy
+import os
 
 from skxray.core import verbosedict
 import abc
@@ -486,16 +487,16 @@ def _enums_equal(left, right):
     return set(str(_) for _ in left) == set(str(_) for _ in right)
 
 _enum_error = ('Attempting to automatically create '
-              'an enum port for the function named'
-              ' {0}. The values for the enum port '
-                'defined in the doc string are {1} '
-                'with length {2} and there is a '
-                'function attribute with values {3} '
-                'and length {4}.  Please make sure '
-                'the values in the docstring agree '
-                'with the values in the function '
-                'attribute, as I\'m not sure which '
-                'to use.')
+               'an enum port for the function named'
+               ' {0}. The values for the enum port '
+               'defined in the doc string are {1} '
+               'with length {2} and there is a '
+               'function attribute with values {3} '
+               'and length {4}.  Please make sure '
+               'the values in the docstring agree '
+               'with the values in the function '
+               'attribute, as I\'m not sure which '
+               'to use.')
 
 
 def define_input_ports(docstring, func, short_description_word_count=4):
@@ -537,7 +538,7 @@ def define_input_ports(docstring, func, short_description_word_count=4):
                 is_enum = False
                 enum_list = []
                 logger.warning("abuse of enum  %s |%s <%s>|",
-                    func.__name__, the_name, the_type)
+                               func.__name__, the_name, the_type)
                 normed_type = try_norm
         # see if we still need to normalize
         if normed_type is None:
@@ -575,10 +576,9 @@ def define_input_ports(docstring, func, short_description_word_count=4):
                                           'basic:Variant',
                                           'basic:Dictionary']:
                     logger.info(("Trying to set default value for non-constant"
-                                 "type "
-                                   "%s: |%s <%s>| (%s)"),
-                                   func.__name__, the_name, the_type,
-                                   tmp_v)
+                                 "type %s: |%s <%s>| (%s)"),
+                                func.__name__, the_name, the_type,
+                                tmp_v)
                 else:
                     pdict['default'] = tmp_v
                     pdict['optional'] = True
@@ -675,7 +675,7 @@ def define_output_ports(docstring, short_description_word_count=4):
                     # TODO dillify
                     raise AutowrapError("Malformed type")
                 output_ports.append(dict(name=the_name,
-                                          signature=sig_map[the_type]))
+                                         signature=sig_map[the_type]))
 
     return output_ports
 
@@ -739,11 +739,63 @@ def scrape_function(func_name, module_path):
             'module_path': module_path}
 
 
-def scrape_module(module_path, black_list=None,
+_IGNORE_DIRS = ['__pycache__', '.git', 'cover', 'build', 'dist', 'tests']
+
+
+def get_modules_in_library(library, ignoredirs=None):
+    """
+
+    Parameters
+    ----------
+    library : str
+        The library to be imported
+    ignoredirs : list, optional
+        List of strings that, if present in the file path, will cause all
+        sub-directories to be ignored
+        Defaults to the ``ignoredirs`` list in this module
+
+    Returns
+    -------
+    modules : str
+        List of modules that can be imported with
+        ``importlib.import_module(module)``
+    """
+    if ignoredirs is None:
+        ignoredirs = _IGNORE_DIRS
+    # grab the python module object so that you can
+    module = importlib.import_module(library)
+    # grab its path
+    top_level = os.sep.join(module.__file__.split(os.sep)[:-1])
+    mods = []
+    # walk the directory to obtain all python modules with .__init__ special
+    # cased and non-python files are ignored and paths containing anything in
+    # _IGNORE_DIRS are also ignored
+    for path, dirs, files in os.walk(top_level):
+        skip = False
+        for ignore in ignoredirs:
+            if ignore in path:
+                skip = True
+                break
+        if skip:
+            continue
+        if path.split(os.sep)[-1] in ignoredirs:
+            continue
+        for f in files:
+            file_base, file_ext = f.split('.')
+            if file_ext == 'py':
+                mod_path = path[len(top_level)-len(library):].split(os.sep)
+                if not file_base == '__init__':
+                    mod_path.append(file_base)
+                mod_path = '.'.join(mod_path)
+                mods.append(mod_path)
+    return mods
+
+
+def scrape_module(module_path, recurse=False,
+                  black_list=None,
                   exclude_markers=None,
                   exclude_private=True):
-    """
-    Attempt to scrape all functions from a module.
+    """Attempt to scrape all functions from a module.
 
     Parameters
     ----------
@@ -759,7 +811,6 @@ def scrape_module(module_path, black_list=None,
 
     exclude_private : bool
         If True, do not scrape private (prefixed by '_') functions
-
 
     Returns
     -------
@@ -777,35 +828,41 @@ def scrape_module(module_path, black_list=None,
 
     black_list = set(black_list)
 
-    # grab the module from it's name
-    mod = importlib.import_module(module_path)
-
-    if hasattr(mod, '__all__'):
-        trial_list = mod.__all__
+    if recurse:
+        mods = [importlib.import_module(mod) for mod in
+                get_modules_in_library(module_path)]
     else:
-        trial_list = dir(mod)
+        # grab the module from it's name
+        mods = [importlib.import_module(module_path)]
 
     funcs_to_wrap = []
-    for atr_name in trial_list:
-        # if a private member, continue
-        if exclude_private and atr_name.startswith('_'):
-            continue
-        # if we know it is black listed, continue
-        if atr_name in black_list:
-            continue
-        # grab the attribute so we can introspect
-        atr = getattr(mod, atr_name)
 
-        # check the exclude markers
-        if any(k in atr_name for k in exclude_markers):
-            continue
+    for mod in mods:
+        if hasattr(mod, '__all__'):
+            trial_list = mod.__all__
+        else:
+            trial_list = dir(mod)
 
-        # if the attribute is not a callable or it is of type 'type'
-        # (meaning it is a class) continue
-        if not callable(atr) or type(atr) in (type, abc.ABCMeta):
-            continue
+        for atr_name in trial_list:
+            # if a private member, continue
+            if exclude_private and atr_name.startswith('_'):
+                continue
+            # if we know it is black listed, continue
+            if atr_name in black_list:
+                continue
+            # grab the attribute so we can introspect
+            atr = getattr(mod, atr_name)
 
-        funcs_to_wrap.append(atr_name)
+            # check the exclude markers
+            if any(k in atr_name for k in exclude_markers):
+                continue
+
+            # if the attribute is not a callable or it is of type 'type'
+            # (meaning it is a class) continue
+            if not callable(atr) or type(atr) in (type, abc.ABCMeta):
+                continue
+
+            funcs_to_wrap.append(atr_name)
 
     ret = dict()
     for ftw in funcs_to_wrap:

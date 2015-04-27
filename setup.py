@@ -10,7 +10,7 @@ setup(
               'vttools.vtmods',
               'vttools.vtmods.import_lists',
               'vttools.to_wrap',
-              'vttools.tests'
+              'vttools.tests',
               ],
     package_data={'vttools.vtmods.import_lists': ['*.yaml']}
     )
